@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const DIR = path.join(process.cwd(), "content", "news");
-const FIELDS = ["AI", "Công nghệ", "Tiền mã hóa", "Tài chính"];
+const FIELDS = ["AI", "Công nghệ", "MMO", "Startup", "Kinh tế", "Tiền mã hóa", "Tài chính"];
 const CONFIDENCE = ["Thấp", "Trung bình", "Cao"];
 
 const errors = [];
@@ -60,10 +60,10 @@ for (const file of files) {
     continue;
   }
 
-  if (b.items.length !== 5) {
+  if (b.items.length !== 10) {
     warn(
       file,
-      `có ${b.items.length} tin thay vì 5 — chỉ chấp nhận nếu thực sự thiếu tin đủ chất lượng`
+      `có ${b.items.length} tin thay vì 10 — chỉ chấp nhận nếu thực sự thiếu tin đủ chất lượng`
     );
   }
 

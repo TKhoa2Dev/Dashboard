@@ -1,4 +1,12 @@
-export const FIELDS = ["AI", "Công nghệ", "Tiền mã hóa", "Tài chính"] as const;
+export const FIELDS = [
+  "AI",
+  "Công nghệ",
+  "MMO",
+  "Startup",
+  "Kinh tế",
+  "Tiền mã hóa",
+  "Tài chính",
+] as const;
 
 export type Field = (typeof FIELDS)[number];
 

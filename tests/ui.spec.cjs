@@ -2,7 +2,7 @@
 const puppeteer = require("puppeteer-core");
 
 const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const BASE = "http://127.0.0.1:3111";
+const BASE = "http://127.0.0.1:3000";
 
 const log = (ok, msg) => console.log(`${ok ? "PASS" : "FAIL"}  ${msg}`);
 
@@ -30,7 +30,7 @@ const log = (ok, msg) => console.log(`${ok ? "PASS" : "FAIL"}  ${msg}`);
 
   // 1. Số tin
   const cards = await page.$$eval("article.card", (n) => n.length);
-  check(cards === 5, `Có đúng 5 tin (thực tế: ${cards})`);
+  check(cards === 10, `Có đúng 10 tin (thực tế: ${cards})`);
 
   // 2. Mở panel phân tích
   const toggle = await page.$(".analysis-toggle");

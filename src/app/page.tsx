@@ -25,7 +25,7 @@ export default function HomePage() {
       <div className="page-head">
         <h1 className="page-title">Daily News</h1>
         <p className="page-sub">
-          {bulletin.items.length} tin đã kiểm chứng về AI, công nghệ, tiền mã hóa và tài chính.
+          {bulletin.items.length} tin đã kiểm chứng về AI, công nghệ, MMO, startup, kinh tế, tiền mã hóa và tài chính.
         </p>
         <div className="date-line">
           <span>{formatDateLongVN(bulletin.date)}</span>
