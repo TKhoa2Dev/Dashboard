@@ -7,8 +7,53 @@ không phải dò lại từ đầu.
 
 ## 0. Kích hoạt
 
-Người dùng nhắn một câu kiểu *"làm bản tin hôm nay"*. Đó là tín hiệu bắt đầu.
-Không cần hỏi lại quy trình.
+### Chế độ A — Tự động (đã dựng, cần 1 bước của người dùng)
+
+GitHub Actions chạy **06:00 giờ Bangkok** (`cron: "0 23 * * *"` UTC) mỗi ngày:
+`ingest.mjs` → `generate.mjs` → `write-bulletin.mjs` → `validate` → `build` → commit → Vercel tự deploy.
+
+**Điều kiện duy nhất:** phải có secret `ANTHROPIC_API_KEY` trong
+`Settings → Secrets and variables → Actions`. Chưa có secret thì job dừng ở bước gọi model.
+
+Có thể bấm **Run workflow** để chạy tay (workflow_dispatch).
+
+Chạy thủ công trên máy:
+
+```powershell
+$env:ANTHROPIC_API_KEY = (Get-Content 'C:\Users\LENOVO\Documents\api.txt' -Raw).Trim()
+npm run bulletin
+```
+
+### Chế độ B — Người dùng nhắn "làm bản tin hôm nay"
+
+Agent làm tay toàn bộ, có kiểm chứng nguồn. Chất lượng cao hơn chế độ A.
+
+---
+
+## 0.1 Các lớp chống bịa của pipeline tự động
+
+Trong `generate.mjs`, sai là **hủy cả bản tin** (exit 3), không đẩy lên web:
+
+1. **Model chỉ chọn số thứ tự `n`** trong danh sách tin thật. Không tự sinh tin.
+2. **URL / tiêu đề gốc / ngày lấy từ RSS**, không lấy từ model.
+3. **Bắt buộc trích nguyên văn (`quote`)** từ nguồn; so khớp từng ký tự sau khi chuẩn hoá.
+   Lớp mạnh nhất — model không thể bịa mà vẫn khớp.
+4. **Cảnh báo (không chặn)** khi tên riêng của nguồn không thấy trong bản dịch
+   (Congress → Quốc hội là hợp lệ).
+5. **Ít nhất 4 lĩnh vực**, không lĩnh vực nào quá 4/10 tin.
+6. `validate-content.mjs` kiểm schema, id duy nhất, URL http(s), nguồn primary.
+
+Lớp 3 đã bắt được lỗi thật: model viết về **Ukraine** nhưng gán URL bài **Hong Kong**.
+
+---
+
+## 0.2 Bẫy ngày tháng (đã gặp, đừng lặp lại)
+
+Tên file phải theo **giờ Bangkok**, không phải UTC. Lúc 02:00 sáng Bangkok thì UTC vẫn là
+ngày hôm trước → dùng UTC sẽ **ghi đè bản tin cũ**.
+
+`write-bulletin.mjs` dùng `Intl.DateTimeFormat` với `timeZone: "Asia/Bangkok"` và
+**từ chối ghi nếu file đã tồn tại** (exit 4).
 
 ---
 
