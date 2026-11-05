@@ -69,22 +69,46 @@ const log = (ok, msg) => console.log(`${ok ? "PASS" : "FAIL"}  ${msg}`);
   const emptyShown = await page.$eval(".empty-title", (el) => el.textContent || "").catch(() => "");
   check(/Chưa có tin yêu thích/.test(emptyShown), "Bỏ hết favourite hiện empty state");
 
-  // 7. Lọc theo lĩnh vực
+  // 7. Lọc theo lĩnh vực — kiểm tra HÀNH VI, không hard-code số lượng
+  //    (bản tin đổi mỗi ngày nên không thể cố định "còn 1 tin")
   await page.goto(BASE, { waitUntil: "networkidle0" });
-  const chips = await page.$$(".chips .chip");
-  // chip[0] = Tất cả, chip[1] = AI
-  await chips[1].click();
-  await new Promise((r) => setTimeout(r, 350));
-  const aiCards = await page.$$eval("article.card", (n) => n.length);
-  check(aiCards === 1, `Lọc "AI" còn 1 tin (thực tế: ${aiCards})`);
+  const totalAll = await page.$$eval("article.card", (n) => n.length);
 
-  // 8. Tìm kiếm
-  await page.click(".chips .chip"); // về Tất cả
-  await new Promise((r) => setTimeout(r, 250));
-  await page.type(".search input", "Binance");
-  await new Promise((r) => setTimeout(r, 450));
+  // Tìm chip "AI" theo nhãn, không dựa vào vị trí
+  const chips = await page.$$(".chips .chip");
+  let aiChip = null;
+  for (const c of chips) {
+    const t = await c.evaluate((el) => el.textContent || "");
+    if (/^AI\s*\d*$/.test(t.trim())) {
+      aiChip = c;
+      break;
+    }
+  }
+  check(aiChip !== null, "Tìm thấy chip lọc AI");
+
+  if (aiChip) {
+    await aiChip.click();
+    await new Promise((r) => setTimeout(r, 400));
+    const aiCards = await page.$$eval("article.card", (n) => n.length);
+    const allAreAI = await page.$$eval("article.card", (n) =>
+      n.every((el) => /\bAI\b/.test(el.textContent || ""))
+    );
+    check(aiCards >= 1, `Lọc AI còn ít nhất 1 tin (thực tế: ${aiCards})`);
+    check(aiCards < totalAll, `Lọc AI thu hẹp so với tất cả (${aiCards} < ${totalAll})`);
+    check(allAreAI, "Mọi tin sau khi lọc đều thuộc lĩnh vực AI");
+  }
+
+  // 8. Tìm kiếm — dùng chính tiêu đề tin đầu tiên làm từ khóa
+  await page.goto(BASE, { waitUntil: "networkidle0" });
+  const firstTitle = await page.$eval("article.card .card-title, article.card h3", (el) =>
+    (el.textContent || "").trim()
+  );
+  // lấy một từ dài >= 5 ký tự trong tiêu đề để tìm
+  const keyword = (firstTitle.match(/[A-Za-zÀ-ỹ]{5,}/g) || [firstTitle.slice(0, 6)])[0];
+  await page.type(".search input", keyword);
+  await new Promise((r) => setTimeout(r, 500));
   const searchCards = await page.$$eval("article.card", (n) => n.length);
-  check(searchCards === 1, `Tìm "Binance" còn 1 tin (thực tế: ${searchCards})`);
+  check(searchCards >= 1, `Tìm "${keyword}" có kết quả (thực tế: ${searchCards})`);
 
   // 9. Tìm không ra
   await page.click(".search input", { clickCount: 3 });

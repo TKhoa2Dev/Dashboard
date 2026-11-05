@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "validate": "node scripts/validate-content.mjs",
-    "check": "npm run validate && npm run typecheck && npm run build"
+    "check": "npm run validate && npm run typecheck && npm run build",
+    "bulletin": "node scripts/ingest.mjs && node scripts/generate.mjs && node scripts/write-bulletin.mjs && npm run validate"
   },
   "dependencies": {
     "next": "16.4.5",

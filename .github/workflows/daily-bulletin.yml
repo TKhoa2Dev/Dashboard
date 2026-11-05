@@ -1,0 +1,92 @@
+name: Bản tin hằng ngày
+
+# 06:00 giờ Bangkok = 23:00 UTC ngày hôm trước
+on:
+  schedule:
+    - cron: "0 23 * * *"
+  workflow_dispatch: {} # cho phép bấm chạy tay để thử
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-bulletin
+  cancel-in-progress: false
+
+jobs:
+  bulletin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Cài phụ thuộc
+        run: npm ci
+
+      - name: Chặn trùng lặp — đã có bản tin hôm nay chưa?
+        id: guard
+        run: |
+          TODAY=$(TZ=Asia/Bangkok date +%F)
+          echo "today=$TODAY" >> "$GITHUB_OUTPUT"
+          if [ -f "content/news/$TODAY.json" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Đã có bản tin $TODAY — bỏ qua, không tạo trùng."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Chưa có bản tin $TODAY — sẽ tạo."
+          fi
+
+      - name: Thu thập tin từ RSS
+        if: steps.guard.outputs.skip == 'false'
+        run: node scripts/ingest.mjs
+
+      - name: Gọi Sonnet 5.5 chọn và phân tích tin
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL || 'https://apiclan.us/v1' }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL || 'claude-sonnet-5-5' }}
+        run: node scripts/generate.mjs
+
+      - name: Ghi file bản tin
+        if: steps.guard.outputs.skip == 'false'
+        run: node scripts/write-bulletin.mjs
+
+      - name: Kiểm tra nội dung
+        if: steps.guard.outputs.skip == 'false'
+        run: npm run validate
+
+      - name: Build thử
+        if: steps.guard.outputs.skip == 'false'
+        run: npm run build
+
+      - name: Commit và push
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content/news/
+          if git diff --staged --quiet; then
+            echo "Không có thay đổi để commit."
+          else
+            git commit -m "Bản tin tự động ${{ steps.guard.outputs.today }}"
+            git push
+            echo "Đã push. Vercel sẽ tự deploy."
+          fi
+
+      - name: Lưu bản nháp khi thất bại
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingest-debug
+          path: _ingest/
+          retention-days: 7
+          if-no-files-found: ignore
