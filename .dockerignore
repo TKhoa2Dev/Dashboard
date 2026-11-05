@@ -1,0 +1,6 @@
+# Bản quyền nội dung không thuộc về build; giữ tối thiểu.
+node_modules
+.next
+.git
+_shots
+*.png

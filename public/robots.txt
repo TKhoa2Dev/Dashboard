@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+# Dashboard cá nhân — không cần thu thập dữ liệu tìm kiếm.

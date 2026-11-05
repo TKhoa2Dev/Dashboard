@@ -1,0 +1,24 @@
+# Render Blueprint
+# Cách dùng: Render Dashboard -> New + -> Blueprint -> chọn repo -> Apply.
+# LƯU Ý: nếu repo có thư mục gốc là "News" (dashboard nằm trong News/dashboard),
+# phải đặt "rootDir" cho đúng. Nếu anh push riêng thư mục dashboard thành repo
+# gốc thì có thể bỏ dòng rootDir đi.
+
+services:
+  - type: web
+    name: daily-brief
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: dashboard
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
