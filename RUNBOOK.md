@@ -48,8 +48,8 @@ trong `model.note`. Dashboard sẽ tự hiện **khung vàng cảnh báo**. Tuy�
   `theverge.com/rss/index.xml`, `hnrss.org/frontpage`
 - Nếu một trang chặn bot (Ars trả 405, CoinDesk 429), dùng **`https://r.jina.ai/<url>`** để lấy текст.
 - Giá thị trường: `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true`
-- Chọn **đúng 5 tin**, cân bằng AI / công nghệ / tiền mã hóa / tài chính. Không ép đủ lĩnh vực
-  nếu không có tin đủ chất lượng — thiếu thì nói rõ thiếu.
+- Chọn **đúng 10 tin**, trải trên 7 lĩnh vực: AI, Công nghệ, MMO, Startup, Kinh tế,
+  Tiền mã hóa, Tài chính. Không ép đủ lĩnh vực nếu không có tin đủ chất lượng — thiếu thì nói rõ thiếu.
 
 ### Mỗi tin phải có
 

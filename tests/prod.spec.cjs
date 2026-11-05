@@ -26,7 +26,7 @@ const check = (cond, msg) => {
   await page.goto(BASE, { waitUntil: "networkidle0", timeout: 60000 });
 
   const cards = await page.$$eval("article.card", (n) => n.length);
-  check(cards === 5, `5 tin hiển thị (thực tế ${cards})`);
+  check(cards === 10, `10 tin hiển thị (thực tế ${cards})`);
 
   // Nội dung tiếng Việt có dấu đúng
   const bodyText = await page.evaluate(() => document.body.innerText);
