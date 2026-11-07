@@ -9,8 +9,15 @@ không phải dò lại từ đầu.
 
 ### Chế độ A — Tự động (đã dựng, cần 1 bước của người dùng)
 
-GitHub Actions chạy **06:00 giờ Bangkok** (`cron: "0 23 * * *"` UTC) mỗi ngày:
+GitHub Actions chạy **06:17 giờ Bangkok** (`cron: "17 23 * * *"` UTC), lượt dự phòng
+07:47 Bangkok (`cron: "47 0 * * *"`). Mỗi ngày:
 `ingest.mjs` → `generate.mjs` → `write-bulletin.mjs` → `validate` → `build` → commit → Vercel tự deploy.
+
+**KHÔNG đặt cron đúng phút 0.** GitHub ghi rõ schedule bị trễ nặng vào đầu mỗi giờ, có thể bị
+bỏ (dropped). Lần chạy 06/11 đã trễ từ 06:00 lên **10:10 Bangkok** vì đúng lý do này.
+
+Hai lượt không tạo bản tin trùng vì `write-bulletin.mjs` **idempotent**:
+đã có file hôm nay thì dừng (exit 0), không ghi đè.
 
 **Điều kiện duy nhất:** phải có secret `ANTHROPIC_API_KEY` trong
 `Settings → Secrets and variables → Actions`. Chưa có secret thì job dừng ở bước gọi model.

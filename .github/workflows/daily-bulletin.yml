@@ -1,9 +1,17 @@
 name: Bản tin hằng ngày
 
-# 06:00 giờ Bangkok = 23:00 UTC ngày hôm trước
+# 06:17 giờ Bangkok = 23:17 UTC ngày hôm trước.
+#
+# KHÔNG đặt đúng phút 0: GitHub ghi rõ schedule bị trễ nặng vào đầu mỗi giờ
+# ("high load times include the start of every hour"), thậm chí bị bỏ (dropped).
+# Lần chạy 06/11 đã trễ từ 06:00 lên 10:10 Bangkok vì lý do này.
+#
+# Lượt thứ hai 07:47 Bangkok là DỰ PHÒNG. An toàn vì write-bulletin.mjs idempotent:
+# đã có file hôm nay thì dừng (exit 0), không ghi đè, không tạo bản tin trùng.
 on:
   schedule:
-    - cron: "0 23 * * *"
+    - cron: "17 23 * * *"
+    - cron: "47 0 * * *"
   workflow_dispatch: {}
 
 permissions:
