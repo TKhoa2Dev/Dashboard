@@ -102,7 +102,16 @@ Dưới đây là ${cands.length} tin THẬT vừa được thu thập trong 24 
 
 ${menu}
 
-NHIỆM VỤ: chọn đúng 10 tin đáng chú ý nhất và PHẢI trải đều lĩnh vực — mỗi lĩnh vực có tin tốt thì lấy, không dồn quá 3 tin vào một lĩnh vực. Thứ tự ưu tiên lĩnh vực: (1) MMO/creator economy/nền tảng kiếm tiền, (2) Startup & gọi vốn, (3) AI, (4) Tiền mã hóa, (5) Kinh tế/vĩ mô, (6) Công nghệ, (7) Tài chính. Không chọn bài review sản phẩm đơn thuần, không chọn bài quảng bá hội nghị, không chọn bài khuyến mãi.
+NHIỆM VỤ: chọn đúng 10 tin đáng chú ý nhất và PHẢI trải đều lĩnh vực — mỗi lĩnh vực có tin tốt thì lấy, không dồn quá 3 tin vào một lĩnh vực. Thứ tự ưu tiên lĩnh vực: (1) MMO/creator economy/nền tảng kiếm tiền, (2) Startup & gọi vốn, (3) AI, (4) Tiền mã hóa, (5) Kinh tế/vĩ mô, (6) Công nghệ, (7) Tài chính.
+
+LOẠI BỎ NGAY, không chọn dù tin có mới:
+- Bài y khoa, sức khỏe, tai nạn, án mạng, câu chuyện con người
+- Bài review sản phẩm đơn thuần (đánh giá điện thoại, laptop, tai nghe, đồ gia dụng)
+- Bài khuyến mãi, quảng bá hội nghị, mời mua vé
+- Bài về an toàn trẻ em, bạo lực, nội dung nhạy cảm
+- Tin thể thao, giải trí, đời sống, du lịch, thời tiết, ẩm thực
+
+Chỉ chọn tin có giá trị với nhà đầu tư, người làm công nghệ, hoặc người kiếm tiền online: thương vụ M&A, gọi vốn, sản phẩm nền tảng, chính sách ảnh hưởng thị trường, sự kiện tài chính vĩ mô, xu hướng kiếm tiền số.
 
 Với mỗi tin đã chọn, viết bằng tiếng Việt:
 - "n": số thứ tự trong danh sách trên (số nguyên, BẮT BUỘC lấy từ danh sách)

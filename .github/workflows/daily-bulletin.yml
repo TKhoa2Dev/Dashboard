@@ -4,7 +4,7 @@ name: Bản tin hằng ngày
 on:
   schedule:
     - cron: "0 23 * * *"
-  workflow_dispatch: {} # cho phép bấm chạy tay để thử
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -16,11 +16,13 @@ concurrency:
 jobs:
   bulletin:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Cài Node
         uses: actions/setup-node@v4
@@ -31,25 +33,12 @@ jobs:
       - name: Cài phụ thuộc
         run: npm ci
 
-      - name: Chặn trùng lặp — đã có bản tin hôm nay chưa?
-        id: guard
-        run: |
-          TODAY=$(TZ=Asia/Bangkok date +%F)
-          echo "today=$TODAY" >> "$GITHUB_OUTPUT"
-          if [ -f "content/news/$TODAY.json" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Đã có bản tin $TODAY — bỏ qua, không tạo trùng."
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Chưa có bản tin $TODAY — sẽ tạo."
-          fi
-
+      # Không tự chặn trùng ở đây — write-bulletin.mjs đã idempotent:
+      # nếu đã có file hôm nay thì tự dừng (exit 0), không ghi đè.
       - name: Thu thập tin từ RSS
-        if: steps.guard.outputs.skip == 'false'
         run: node scripts/ingest.mjs
 
       - name: Gọi Sonnet 5.5 chọn và phân tích tin
-        if: steps.guard.outputs.skip == 'false'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL || 'https://apiclan.us/v1' }}
@@ -57,29 +46,27 @@ jobs:
         run: node scripts/generate.mjs
 
       - name: Ghi file bản tin
-        if: steps.guard.outputs.skip == 'false'
+        id: write
         run: node scripts/write-bulletin.mjs
 
       - name: Kiểm tra nội dung
-        if: steps.guard.outputs.skip == 'false'
         run: npm run validate
 
       - name: Build thử
-        if: steps.guard.outputs.skip == 'false'
         run: npm run build
 
       - name: Commit và push
-        if: steps.guard.outputs.skip == 'false'
         run: |
+          TODAY=$(TZ=Asia/Bangkok date +%F)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add content/news/
           if git diff --staged --quiet; then
-            echo "Không có thay đổi để commit."
+            echo "Không có thay đổi để commit (bản tin $TODAY đã tồn tại từ trước)."
           else
-            git commit -m "Bản tin tự động ${{ steps.guard.outputs.today }}"
+            git commit -m "Bản tin tự động $TODAY"
             git push
-            echo "Đã push. Vercel sẽ tự deploy."
+            echo "Đã push bản tin $TODAY. Vercel sẽ tự deploy."
           fi
 
       - name: Lưu bản nháp khi thất bại
