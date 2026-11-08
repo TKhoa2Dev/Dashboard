@@ -96,14 +96,23 @@ const menu = cands
   )
   .join("\n");
 
-const prompt = `Bạn là biên tập viên bản tin công nghệ – tài chính cho độc giả Việt Nam.
+/**
+ * Prompt theo LÔ. Gọi nhiều lần, mỗi lần 5 tin, để tránh gateway timeout (HTTP 524)
+ * khi phải sinh 10 tin đầy đủ trong một lần.
+ */
+function buildPrompt(wantCount, excludedN) {
+  const excl =
+    excludedN && excludedN.length
+      ? `\nĐÃ CHỌN CÁC SỐ SAU, TUYỆT ĐỐI KHÔNG chọn lại: ${excludedN.join(", ")}.\n`
+      : "";
+
+  return `Bạn là biên tập viên bản tin công nghệ – tài chính cho độc giả Việt Nam.
 
 Dưới đây là ${cands.length} tin THẬT vừa được thu thập trong 24 giờ qua. Mỗi tin có số thứ tự.
 
 ${menu}
 
-NHIỆM VỤ: chọn đúng 10 tin đáng chú ý nhất và PHẢI trải đều lĩnh vực — mỗi lĩnh vực có tin tốt thì lấy, không dồn quá 3 tin vào một lĩnh vực. Thứ tự ưu tiên lĩnh vực: (1) MMO/creator economy/nền tảng kiếm tiền, (2) Startup & gọi vốn, (3) AI, (4) Tiền mã hóa, (5) Kinh tế/vĩ mô, (6) Công nghệ, (7) Tài chính.
-
+NHIỆM VỤ: chọn đúng ${wantCount} tin đáng chú ý nhất và PHẢI trải đều lĩnh vực — không dồn quá 3 tin vào một lĩnh vực. Thứ tự ưu tiên lĩnh vực: (1) MMO/creator economy/nền tảng kiếm tiền, (2) Startup & gọi vốn, (3) AI, (4) Tiền mã hóa, (5) Kinh tế/vĩ mô, (6) Công nghệ, (7) Tài chính.${excl}
 LOẠI BỎ NGAY, không chọn dù tin có mới:
 - Bài y khoa, sức khỏe, tai nạn, án mạng, câu chuyện con người
 - Bài review sản phẩm đơn thuần (đánh giá điện thoại, laptop, tai nghe, đồ gia dụng)
@@ -135,66 +144,79 @@ QUY TẮC BẮT BUỘC:
 4. Phân biệt rõ dữ kiện với suy luận của bạn.
 5. Không khuyến nghị mua/bán chứng khoán hay coin.
 6. Trả về DUY NHẤT một object JSON, không kèm chữ nào khác, theo cấu trúc:
-{"items":[{...}],"summary":{"watchpoints":["..."],"topOpportunity":"...","risks":["..."],"disclaimer":"..."}}
-Trong đó "items" có đúng 10 phần tử, "watchpoints" 2-4 mục, "risks" 3-5 mục.`;
+{"items":[{...}]}
+Trong đó "items" có đúng ${wantCount} phần tử.`;
+}
 
-async function callModel(attempt = 1) {
-  const body = {
-    model: MODEL,
-    max_tokens: 8000,
-    messages: [{ role: "user", content: prompt }],
-  };
-
+async function callModel(prompt) {
   const MAX_ATTEMPTS = 3;
-  let res;
-  try {
-    res = await fetch(`${BASE_URL}/messages`, {
-      method: "POST",
-      headers: {
-        "x-api-key": API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(240_000),
-    });
-  } catch (e) {
-    if (attempt < MAX_ATTEMPTS) {
-      console.warn(`  lần ${attempt} lỗi mạng (${e.message}) — thử lại sau 15s`);
-      await new Promise((r) => setTimeout(r, 15_000));
-      return callModel(attempt + 1);
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const body = {
+      model: MODEL,
+      max_tokens: 8000,
+      messages: [{ role: "user", content: prompt }],
+    };
+
+    let res;
+    try {
+      res = await fetch(`${BASE_URL}/messages`, {
+        method: "POST",
+        headers: {
+          "x-api-key": API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(300_000),
+      });
+    } catch (e) {
+      if (attempt < MAX_ATTEMPTS) {
+        console.warn(`  lần ${attempt} lỗi mạng (${e.message}) — thử lại sau 15s`);
+        await new Promise((r) => setTimeout(r, 15_000));
+        continue;
+      }
+      die(`không kết nối được API sau ${MAX_ATTEMPTS} lần: ${e.message}`);
     }
-    die(`không kết nối được API sau ${MAX_ATTEMPTS} lần: ${e.message}`);
+
+    const text = await res.text();
+
+    // 524/502/503/504 là lỗi tạm thời của gateway — thử lại
+    if ([502, 503, 504, 524, 429].includes(res.status)) {
+      if (attempt < MAX_ATTEMPTS) {
+        console.warn(`  lần ${attempt}: HTTP ${res.status} — thử lại sau 20s`);
+        await new Promise((r) => setTimeout(r, 20_000));
+        continue;
+      }
+      die(`API HTTP ${res.status} sau ${MAX_ATTEMPTS} lần: ${text.slice(0, 200)}`);
+    }
+
+    if (!res.ok) die(`API HTTP ${res.status}: ${text.slice(0, 300)}`);
+
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      die(`phản hồi API không phải JSON: ${text.slice(0, 300)}`);
+    }
+
+    if (json.model && json.model !== MODEL) {
+      console.warn(`CẢNH BÁO: API trả model "${json.model}" thay vì "${MODEL}"`);
+    }
+
+    const content = (json.content || [])
+      .filter((c) => c.type === "text")
+      .map((c) => c.text)
+      .join("\n");
+
+    console.log(
+      `  → ${json.model || MODEL}: vào ${json.usage?.input_tokens} / ra ${json.usage?.output_tokens} token`
+    );
+
+    return { content, usage: json.usage, modelEcho: json.model };
   }
 
-  const text = await res.text();
-
-  // 524/502/503 là lỗi tạm thời của gateway — thử lại
-  if ([502, 503, 504, 524, 429].includes(res.status) && attempt < MAX_ATTEMPTS) {
-    console.warn(`  lần ${attempt}: HTTP ${res.status} — thử lại sau 20s`);
-    await new Promise((r) => setTimeout(r, 20_000));
-    return callModel(attempt + 1);
-  }
-
-  if (!res.ok) die(`API HTTP ${res.status}: ${text.slice(0, 300)}`);
-
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    die(`phản hồi API không phải JSON: ${text.slice(0, 300)}`);
-  }
-
-  if (json.model && json.model !== MODEL) {
-    console.warn(`CẢNH BÁO: API trả model "${json.model}" thay vì "${MODEL}"`);
-  }
-
-  const content = (json.content || [])
-    .filter((c) => c.type === "text")
-    .map((c) => c.text)
-    .join("\n");
-
-  return { content, usage: json.usage, modelEcho: json.model };
+  die("hết số lần thử");
 }
 
 /** Bóc JSON khỏi văn bản (model đôi khi bọc trong ```json) */
@@ -395,12 +417,49 @@ function validateAndBuild(parsed) {
 }
 
 async function main() {
-  console.log(`Gọi model ${MODEL} tại ${BASE_URL} ...`);
-  const { content, usage, modelEcho } = await callModel();
-  console.log(`Model trả: ${modelEcho} | vào ${usage?.input_tokens} / ra ${usage?.output_tokens} token`);
+  console.log(`Gọi model ${MODEL} tại ${BASE_URL} — chia 2 lô × 5 tin`);
 
-  const parsed = extractJson(content);
-  const { errs, warnings, items, fieldsUsed } = validateAndBuild(parsed);
+  const BATCH = 5;
+  const TOTAL = 10;
+  const rawItems = [];
+  const usages = [];
+  const modelEchos = new Set();
+  const usedN = new Set();
+
+  for (let batch = 0; batch < TOTAL / BATCH; batch++) {
+    const want = BATCH;
+    console.log(`\nLô ${batch + 1}/${TOTAL / BATCH}: xin ${want} tin...`);
+    const { content, usage, modelEcho } = await callModel(buildPrompt(want, [...usedN]));
+    usages.push(usage);
+    if (modelEcho) modelEchos.add(modelEcho);
+
+    const parsed = extractJson(content);
+    const items = parsed.items;
+    if (!Array.isArray(items) || items.length === 0) {
+      die(`lô ${batch + 1}: không có items`);
+    }
+
+    for (const it of items) {
+      const n = Number(it?.n);
+      if (!Number.isInteger(n) || n < 1 || n > cands.length) {
+        die(`lô ${batch + 1}: "n" không hợp lệ (${it?.n})`);
+      }
+      if (usedN.has(n)) {
+        console.warn(`  bỏ tin trùng n=${n}`);
+        continue;
+      }
+      usedN.add(n);
+      rawItems.push(it);
+      if (rawItems.length >= TOTAL) break;
+    }
+  }
+
+  if (rawItems.length < TOTAL) {
+    die(`chỉ thu được ${rawItems.length}/${TOTAL} tin sau 2 lô`);
+  }
+
+  const merged = { items: rawItems.slice(0, TOTAL) };
+  const { errs, warnings, items, fieldsUsed } = validateAndBuild(merged);
 
   if (warnings && warnings.length) {
     console.warn("\nCảnh báo (không chặn):");
@@ -413,21 +472,23 @@ async function main() {
     process.exit(3);
   }
 
-  const summary = parsed.summary || {};
+  const inTok = usages.reduce((s, u) => s + (u?.input_tokens || 0), 0);
+  const outTok = usages.reduce((s, u) => s + (u?.output_tokens || 0), 0);
+  const modelEcho = [...modelEchos][0] || MODEL;
+
   const result = {
     model: {
       requested: "Claude Sonnet 5.5",
-      usedModelId: modelEcho || MODEL,
+      usedModelId: modelEcho,
       verified: true,
-      note: `Chạy tự động qua GitHub Actions. Model ${modelEcho || MODEL}, vào ${usage?.input_tokens} / ra ${usage?.output_tokens} token. Bản tin này do script tạo — KHÔNG có bước kiểm chứng thủ công từng nguồn.`,
+      note: `Chạy tự động, chia 2 lô × 5 tin để tránh gateway timeout. Model ${modelEcho}, tổng vào ${inTok} / ra ${outTok} token. Bản tin này do script tạo — KHÔNG có bước kiểm chứng thủ công từng nguồn.`,
     },
     telegram: { delivered: false, reason: "Chưa cấu hình bot token và chat ID" },
     summary: {
-      watchpoints: Array.isArray(summary.watchpoints) ? summary.watchpoints.slice(0, 4) : [],
-      topOpportunity: summary.topOpportunity || "",
-      risks: Array.isArray(summary.risks) ? summary.risks.slice(0, 5) : [],
+      watchpoints: [],
+      topOpportunity: "",
+      risks: [],
       disclaimer:
-        summary.disclaimer ||
         "Đây là nội dung thông tin, không phải tư vấn tài chính hay khuyến nghị mua/bán.",
     },
     items,

@@ -133,14 +133,45 @@ async function main() {
   const seenUrl = new Set();
   const seenTitle = new Set();
   const unique = [];
+  const dropped = [];
+
+  // Tiêu đề bị loại: khuyến mãi, giá giảm, review sản phẩm, đời sống
+  const BANNED = [
+    /\bis down to (its )?lowest price\b/i,
+    /\blowest price since\b/i,
+    /\bbest deals?\b/i,
+    /\bdeal of the day\b/i,
+    /\bblack friday\b/i,
+    /\bcyber monday\b/i,
+    /\bdiscount(ed)?\b/i,
+    /\b\d+% off\b/i,
+    /\bsave \$\d+/i,
+    /\bprime day\b/i,
+    /\bcoupon\b/i,
+    /\bhow to watch\b/i,
+    /\breview:\s/i,
+    /^\s*review\b/i,
+    /\bhands[- ]on\b/i,
+  ];
 
   for (const it of all.sort((a, b) => b.publishedTs - a.publishedTs)) {
     const u = it.url.replace(/[?#].*$/, "").replace(/\/$/, "").toLowerCase();
     const t = it.title.toLowerCase().replace(/\s+/g, " ");
     if (seenUrl.has(u) || seenTitle.has(t)) continue;
+
+    const banned = BANNED.find((re) => re.test(it.title));
+    if (banned) {
+      dropped.push({ title: it.title, reason: "khuyến mãi/review" });
+      continue;
+    }
+
     seenUrl.add(u);
     seenTitle.add(t);
     unique.push(it);
+  }
+
+  if (dropped.length) {
+    console.log(`\nĐã loại ${dropped.length} tin khuyến mãi/review ở tầng thu thập.`);
   }
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
